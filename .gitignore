@@ -1,0 +1,18 @@
+# Build output
+build/
+
+# PlatformIO
+.pio/
+examples/esp32/bmp_tester/.pio/
+
+# External repos
+tmp/
+
+# Python validator (separate project)
+tools/g1_validator/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*~

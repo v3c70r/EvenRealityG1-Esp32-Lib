@@ -1,0 +1,27 @@
+{
+  "name": "EvenG1Lib",
+  "version": "0.1.0",
+  "description": "Modern C++ abstraction layer for Even Reality G1 smart glasses",
+  "keywords": ["even-realities", "g1", "smart-glasses", "ble", "display"],
+  "license": "GPL-3.0",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/user/EvenG1Lib"
+  },
+  "platforms": ["espressif32"],
+  "frameworks": ["arduino", "espidf"],
+  "headers": [
+    "include/"
+  ],
+  "srcFilter": [
+    "+<src/**/*.cpp>",
+    "-<src/transport/linux/>",
+    "-<src/devices/simulator_device.cpp>"
+  ],
+  "dependencies": {
+    "h2zero/NimBLE-Arduino": "^2.2.0"
+  },
+  "build": {
+    "flags": "-std=c++17"
+  }
+}
