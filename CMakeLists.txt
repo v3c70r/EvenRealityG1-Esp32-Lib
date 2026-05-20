@@ -23,6 +23,7 @@ set(EVENG1_PROTOCOL_SOURCES
     src/protocol/display_sender.cpp
     src/protocol/text_sender.cpp
     src/protocol/touch_parser.cpp
+    src/protocol/g1_protocol.cpp
 )
 
 set(EVENG1_TRANSPORT_SOURCES
@@ -53,9 +54,13 @@ if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
     find_package(PkgConfig QUIET)
     if(PkgConfig_FOUND)
         pkg_check_modules(SDBUS QUIET IMPORTED_TARGET sdbus-c++)
+        pkg_check_modules(DBUS REQUIRED IMPORTED_TARGET dbus-1)
     endif()
     if(SDBUS_FOUND)
         target_link_libraries(eveng1 PUBLIC PkgConfig::SDBUS)
+    endif()
+    if(DBUS_FOUND)
+        target_link_libraries(eveng1 PUBLIC PkgConfig::DBUS)
     endif()
     target_compile_definitions(eveng1 PUBLIC EVENG1_PLATFORM_LINUX)
 endif()
