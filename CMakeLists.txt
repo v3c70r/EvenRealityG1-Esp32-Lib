@@ -34,6 +34,7 @@ set(EVENG1_TRANSPORT_SOURCES
 set(EVENG1_DEVICE_SOURCES
     src/devices/g1_device.cpp
     src/devices/simulator_device.cpp
+    src/devices/g1_display.cpp
 )
 
 add_library(eveng1

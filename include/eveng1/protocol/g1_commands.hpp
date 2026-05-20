@@ -2,6 +2,7 @@
 
 #include <cstdint>
 #include <cstddef>
+#include "../eveng1.hpp"
 
 namespace eveng1 {
 
@@ -57,5 +58,8 @@ constexpr uint8_t SCREEN_AI_COMPLETE = 0x40;
 constexpr uint8_t SCREEN_AI_MANUAL  = 0x50;
 constexpr uint8_t SCREEN_AI_ERROR   = 0x60;
 constexpr uint8_t SCREEN_NEW_CONTENT = 0x01;
+
+// TouchBar parsing
+TouchEvent parseTouchbarData(const uint8_t* data, uint16_t len, bool& outIsLeft);
 
 }  // namespace eveng1
