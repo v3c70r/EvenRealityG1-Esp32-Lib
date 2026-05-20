@@ -44,8 +44,6 @@ private:
     uint8_t m_lastResponseData[256];
     uint16_t m_lastResponseLen = 0;
     bool m_responseReady = false;
-
-    static void notifyHandler(uint8_t cmd, const uint8_t* data, uint16_t len, void* userData);
 };
 
 }  // namespace eveng1

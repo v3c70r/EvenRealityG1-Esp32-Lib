@@ -97,6 +97,7 @@ if(EVENG1_BUILD_TESTS)
     add_eveng1_test(test_dither)
     add_eveng1_test(test_font)
     add_eveng1_test(test_crc32)
+    add_eveng1_test(test_protocol)
 endif()
 
 # ─── Examples ───

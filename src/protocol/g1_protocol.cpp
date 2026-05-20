@@ -8,20 +8,20 @@
 namespace eveng1 {
 
 G1Protocol::G1Protocol(BleTransport& transport)
-    : m_transport(transport) {}
+    : m_transport(transport) {
+    m_transport.setNotifyCallback(
+        [this](uint8_t cmd, const uint8_t* data, uint16_t len) {
+            m_lastResponseCmd = cmd;
+            m_lastResponseLen = len;
+            if (len <= sizeof(m_lastResponseData)) {
+                std::memcpy(m_lastResponseData, data, len);
+            }
+            m_responseReady = true;
 
-void G1Protocol::notifyHandler(uint8_t cmd, const uint8_t* data, uint16_t len, void* userData) {
-    auto* self = static_cast<G1Protocol*>(userData);
-    self->m_lastResponseCmd = cmd;
-    self->m_lastResponseLen = len;
-    if (len <= sizeof(self->m_lastResponseData)) {
-        std::memcpy(self->m_lastResponseData, data, len);
-    }
-    self->m_responseReady = true;
-
-    if (self->m_responseCb) {
-        self->m_responseCb(cmd, data, len);
-    }
+            if (m_responseCb) {
+                m_responseCb(cmd, data, len);
+            }
+        });
 }
 
 bool G1Protocol::init() {
