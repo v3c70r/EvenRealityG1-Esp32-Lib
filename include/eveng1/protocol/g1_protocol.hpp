@@ -44,6 +44,7 @@ private:
     uint8_t m_lastResponseData[256];
     uint16_t m_lastResponseLen = 0;
     bool m_responseReady = false;
+    uint8_t m_hbSeq = 0;
 };
 
 }  // namespace eveng1

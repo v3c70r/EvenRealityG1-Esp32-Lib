@@ -25,8 +25,8 @@ G1Protocol::G1Protocol(BleTransport& transport)
 }
 
 bool G1Protocol::init() {
-    // Send INIT command (0xF4)
-    uint8_t initPacket[] = {CMD_INIT, 0x00, 0x00};
+    // Send INIT command (0xF4, 0x01) - matches reference app
+    uint8_t initPacket[] = {CMD_INIT, 0x01};
     if (!sendPacket(initPacket, sizeof(initPacket))) {
         std::cerr << "Failed to send INIT" << std::endl;
         return false;
@@ -42,7 +42,7 @@ bool G1Protocol::init() {
 }
 
 void G1Protocol::exit() {
-    uint8_t exitPacket[] = {CMD_EXIT, 0x00, 0x00};
+    uint8_t exitPacket[] = {CMD_EXIT, 0x01};
     sendPacket(exitPacket, sizeof(exitPacket));
 }
 
@@ -55,20 +55,18 @@ bool G1Protocol::sendBmp(const uint8_t* pixelData, uint32_t dataLen,
     uint8_t crc[4];
     crc32_xz_bmp(addr, pixelData, dataLen, crc);
 
-    // Send CRC command first
-    uint8_t crcPacket[11];
+    // Send CRC command FIRST (before BMP data)
+    // Format: [0x16, crc0, crc1, crc2, crc3] - 5 bytes, NO address
+    uint8_t crcPacket[5];
     crcPacket[0] = CMD_CRC;
-    crcPacket[1] = 0x08;  // payload length (4 addr + 4 crc)
-    crcPacket[2] = 0x00;
-    std::memcpy(crcPacket + 3, addr, 4);
-    std::memcpy(crcPacket + 7, crc, 4);
+    std::memcpy(crcPacket + 1, crc, 4);
     if (!sendPacket(crcPacket, sizeof(crcPacket))) {
         std::cerr << "Failed to send CRC" << std::endl;
         return false;
     }
 
     // Send BMP data in chunks
-    const uint32_t maxPayload = BMP_PACKET_SIZE - 4;  // 190 bytes of pixel data per packet
+    const uint32_t maxPayload = BMP_PACKET_SIZE;  // 194 bytes of pixel data per packet
     uint32_t offset = 0;
     uint8_t packetBuffer[BMP_PACKET_SIZE + 10];
 
@@ -76,13 +74,19 @@ bool G1Protocol::sendBmp(const uint8_t* pixelData, uint32_t dataLen,
         uint32_t chunkLen = std::min(maxPayload, dataLen - offset);
 
         // Build BMP_DATA packet
+        // First packet: [0x15, seq, addr[4], data...]
+        // Subsequent: [0x15, seq, data...]
+        bool isFirst = (offset == 0);
+        size_t headerSize = isFirst ? 6 : 2;
+        
         packetBuffer[0] = CMD_BMP_DATA;
-        packetBuffer[1] = static_cast<uint8_t>((4 + chunkLen) & 0xFF);
-        packetBuffer[2] = static_cast<uint8_t>(((4 + chunkLen) >> 8) & 0xFF);
-        std::memcpy(packetBuffer + 3, addr, 4);
-        std::memcpy(packetBuffer + 7, pixelData + offset, chunkLen);
+        packetBuffer[1] = (offset / BMP_PACKET_SIZE) & 0xFF;  // seq
+        if (isFirst) {
+            std::memcpy(packetBuffer + 2, addr, 4);
+        }
+        std::memcpy(packetBuffer + headerSize, pixelData + offset, chunkLen);
 
-        uint16_t totalLen = 3 + 4 + chunkLen;
+        uint16_t totalLen = static_cast<uint16_t>(headerSize + chunkLen);
         if (!sendPacket(packetBuffer, totalLen)) {
             std::cerr << "Failed to send BMP data at offset " << offset << std::endl;
             return false;
@@ -90,24 +94,13 @@ bool G1Protocol::sendBmp(const uint8_t* pixelData, uint32_t dataLen,
 
         offset += chunkLen;
 
-        // Update address for next packet (big-endian 32-bit)
-        uint32_t addrVal = (static_cast<uint32_t>(addr[0]) << 24) |
-                           (static_cast<uint32_t>(addr[1]) << 16) |
-                           (static_cast<uint32_t>(addr[2]) << 8) |
-                            static_cast<uint32_t>(addr[3]);
-        addrVal += chunkLen;
-        const_cast<uint8_t*>(addr)[0] = (addrVal >> 24) & 0xFF;
-        const_cast<uint8_t*>(addr)[1] = (addrVal >> 16) & 0xFF;
-        const_cast<uint8_t*>(addr)[2] = (addrVal >> 8) & 0xFF;
-        const_cast<uint8_t*>(addr)[3] = addrVal & 0xFF;
-
         if (interPacketDelayMs > 0) {
             std::this_thread::sleep_for(std::chrono::milliseconds(interPacketDelayMs));
         }
     }
 
-    // Send BMP_END
-    uint8_t endPacket[] = {CMD_BMP_END, 0x00, 0x00};
+    // Send BMP_END: [0x20, 0x0D, 0x0E]
+    uint8_t endPacket[] = {CMD_BMP_END, 0x0D, 0x0E};
     if (!sendPacket(endPacket, sizeof(endPacket))) {
         std::cerr << "Failed to send BMP_END" << std::endl;
         return false;
@@ -120,21 +113,38 @@ bool G1Protocol::sendText(const char* text, uint8_t page, uint8_t maxPage) {
     if (!text) return false;
 
     uint16_t textLen = static_cast<uint16_t>(std::strlen(text));
-    uint16_t payloadLen = 2 + textLen;
+    constexpr uint16_t MAX_CHUNK = 191;
+    uint16_t totalPackets = (textLen + MAX_CHUNK - 1) / MAX_CHUNK;
 
-    std::vector<uint8_t> packet(3 + payloadLen);
-    packet[0] = CMD_TEXT;
-    packet[1] = payloadLen & 0xFF;
-    packet[2] = (payloadLen >> 8) & 0xFF;
-    packet[3] = page;
-    packet[4] = maxPage;
-    std::memcpy(packet.data() + 5, text, textLen);
+    for (uint16_t i = 0; i < totalPackets; i++) {
+        uint16_t start = i * MAX_CHUNK;
+        uint16_t chunkLen = std::min(MAX_CHUNK, static_cast<uint16_t>(textLen - start));
 
-    return sendPacket(packet.data(), static_cast<uint16_t>(packet.size()));
+        // 9-byte header: [0x4E, seq, totalPackets, seq, screenStatus, charPosHi, charPosLo, page, maxPage]
+        std::vector<uint8_t> packet(9 + chunkLen);
+        packet[0] = CMD_TEXT;
+        packet[1] = i & 0xFF;           // seq
+        packet[2] = totalPackets & 0xFF; // total packets
+        packet[3] = i & 0xFF;           // seq (again)
+        packet[4] = 0x71;               // screenStatus: 0x70 (text show) | 0x01 (new content)
+        packet[5] = 0x00;               // char_pos high
+        packet[6] = 0x00;               // char_pos low
+        packet[7] = page;
+        packet[8] = maxPage;
+        std::memcpy(packet.data() + 9, text + start, chunkLen);
+
+        if (!sendPacket(packet.data(), static_cast<uint16_t>(packet.size()))) {
+            return false;
+        }
+    }
+
+    return true;
 }
 
 bool G1Protocol::heartbeat() {
-    return sendPacket(HEARTBEAT_TEMPLATE, sizeof(HEARTBEAT_TEMPLATE));
+    m_hbSeq++;
+    uint8_t hb[] = {CMD_HEARTBEAT, 0x06, 0x00, m_hbSeq, 0x04, m_hbSeq};
+    return sendPacket(hb, sizeof(hb));
 }
 
 void G1Protocol::setResponseCallback(ResponseCallback cb) {

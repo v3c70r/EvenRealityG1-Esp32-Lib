@@ -119,4 +119,16 @@ if(EVENG1_BUILD_EXAMPLES)
     else()
         message(STATUS "SDL2 not found - simulator disabled")
     endif()
+
+    # Test glasses executable (Linux only)
+    if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
+        add_executable(test_glasses
+            examples/desktop/test_glasses/main.cpp
+        )
+        target_include_directories(test_glasses PRIVATE
+            ${CMAKE_CURRENT_SOURCE_DIR}/include
+        )
+        target_link_libraries(test_glasses PRIVATE eveng1 pthread)
+        target_compile_features(test_glasses PRIVATE cxx_std_17)
+    endif()
 endif()

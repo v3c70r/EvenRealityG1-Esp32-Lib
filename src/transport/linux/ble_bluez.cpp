@@ -59,10 +59,11 @@ bool BleBlueZ::connect(const char* address) {
         return false;
     }
 
-    if (!discoverServices()) {
-        std::cerr << "Failed to discover services" << std::endl;
-        return false;
-    }
+    // BlueZ 5.x auto-discovers services on connect, skip DiscoverServices
+    // if (!discoverServices()) {
+    //     std::cerr << "Failed to discover services" << std::endl;
+    //     return false;
+    // }
 
     if (!findNUSCharacteristics()) {
         std::cerr << "NUS characteristics not found" << std::endl;
@@ -130,17 +131,23 @@ bool BleBlueZ::write(const uint8_t* data, uint16_t len) {
 
     DBusMessageIter variantIter;
     dbus_message_iter_open_container(&dictEntryIter, DBUS_TYPE_VARIANT, "s", &variantIter);
-    const char* typeVal = "request";
+    const char* typeVal = "command";  // WriteWithoutResponse
     dbus_message_iter_append_basic(&variantIter, DBUS_TYPE_STRING, &typeVal);
     dbus_message_iter_close_container(&dictEntryIter, &variantIter);
 
     dbus_message_iter_close_container(&dictIter, &dictEntryIter);
     dbus_message_iter_close_container(&iter, &dictIter);
 
-    DBusMessage* reply = dbus_connection_send_with_reply_and_block(m_conn, msg, 5000, nullptr);
+    DBusError err;
+    dbus_error_init(&err);
+    DBusMessage* reply = dbus_connection_send_with_reply_and_block(m_conn, msg, 5000, &err);
     dbus_message_unref(msg);
 
-    if (!reply) return false;
+    if (!reply) {
+        std::cerr << "Write error: " << err.message << std::endl;
+        dbus_error_free(&err);
+        return false;
+    }
     dbus_message_unref(reply);
     return true;
 }
@@ -261,6 +268,10 @@ bool BleBlueZ::connectDevice() {
     }
 
     dbus_message_unref(reply);
+
+    // Wait for BlueZ to resolve GATT services
+    std::this_thread::sleep_for(std::chrono::seconds(2));
+
     return true;
 }
 
@@ -335,6 +346,8 @@ bool BleBlueZ::findNUSCharacteristics() {
 
     bool found = false;
     std::string nusServicePath;
+
+    std::cerr << "Looking for NUS characteristics..." << std::endl;
 
     DBusMessageIter iter;
     if (dbus_message_iter_init(reply, &iter) &&
@@ -411,8 +424,10 @@ bool BleBlueZ::findNUSCharacteristics() {
                                     parseUUID128(uuidStr, uuid);
                                     if (uuidEqual(uuid, txUUID)) {
                                         m_txPath = path;
+                                        std::cerr << "  TX: " << path << std::endl;
                                     } else if (uuidEqual(uuid, rxUUID)) {
                                         m_rxPath = path;
+                                        std::cerr << "  RX: " << path << std::endl;
                                     }
                                 }
                             }
@@ -451,8 +466,32 @@ bool BleBlueZ::subscribeNotifications() {
     // Register message filter
     dbus_connection_add_filter(m_conn, BleBlueZ::messageFilter, this, nullptr);
 
-    // Start notifications by writing to Client Characteristic Configuration Descriptor (CCCD)
-    // BlueZ handles this automatically when we call StartNotify
+    // Write CCCD descriptor manually (0x2902) to enable notifications
+    // BlueZ sometimes doesn't auto-enable notifications
+    DBusMessage* descMsg = dbus_message_new_method_call(
+        BLUEZ_SERVICE, (m_rxPath + "/desc0001").c_str(),
+        "org.bluez.GattDescriptor1", "WriteValue");
+    if (descMsg) {
+        DBusMessageIter iter, arrIter;
+        dbus_message_iter_init_append(descMsg, &iter);
+        dbus_message_iter_open_container(&iter, DBUS_TYPE_ARRAY, DBUS_TYPE_BYTE_AS_STRING, &arrIter);
+        uint8_t cccd[2] = {0x01, 0x00};  // Enable notifications
+        for (int i = 0; i < 2; i++) {
+            dbus_message_iter_append_basic(&arrIter, DBUS_TYPE_BYTE, &cccd[i]);
+        }
+        dbus_message_iter_close_container(&iter, &arrIter);
+
+        // Options dict
+        DBusMessageIter dictIter;
+        dbus_message_iter_open_container(&iter, DBUS_TYPE_ARRAY, "{sv}", &dictIter);
+        dbus_message_iter_close_container(&iter, &dictIter);
+
+        DBusMessage* descReply = dbus_connection_send_with_reply_and_block(m_conn, descMsg, 2000, nullptr);
+        dbus_message_unref(descMsg);
+        if (descReply) dbus_message_unref(descReply);
+    }
+
+    // Start notifications via BlueZ
     DBusMessage* msg = dbus_message_new_method_call(
         BLUEZ_SERVICE, m_rxPath.c_str(),
         GATT_CHAR_INTERFACE, "StartNotify");
