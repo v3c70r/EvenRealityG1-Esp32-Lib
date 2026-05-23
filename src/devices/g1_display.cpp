@@ -162,6 +162,36 @@ bool G1Display::heartbeat() {
     return m_protocol->heartbeat();
 }
 
+bool G1Display::setBrightness(uint8_t level, bool autoLight) {
+    if (!isConnected()) return false;
+    return m_protocol->sendBrightness(level, autoLight);
+}
+
+bool G1Display::setHeadUpAngle(uint8_t angle) {
+    if (!isConnected()) return false;
+    return m_protocol->sendHeadUpAngle(angle);
+}
+
+bool G1Display::setDashboardPosition(uint8_t height, uint8_t depth) {
+    if (!isConnected()) return false;
+    return m_protocol->sendDashboardPosition(height, depth);
+}
+
+bool G1Display::queryBattery() {
+    if (!isConnected()) return false;
+    return m_protocol->queryBattery();
+}
+
+bool G1Display::setWearDetection(bool enabled) {
+    if (!isConnected()) return false;
+    return m_protocol->setWearDetection(enabled);
+}
+
+bool G1Display::setSilentMode(bool enabled) {
+    if (!isConnected()) return false;
+    return m_protocol->setSilentMode(enabled);
+}
+
 void G1Display::setInputCallback(InputCallback cb) {
     m_inputCb = cb;
 }

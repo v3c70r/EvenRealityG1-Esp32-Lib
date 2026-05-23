@@ -55,4 +55,30 @@ constexpr uint8_t TOUCH_RELEASE      = 0x18;
 constexpr uint8_t SCREEN_TEXT        = 0x71;  // 0x70 | 0x01
 constexpr uint8_t SCREEN_AI_AUTO     = 0x31;  // 0x30 | 0x01
 
+// Display settings
+constexpr uint8_t CMD_BRIGHTNESS      = 0x01;
+constexpr uint8_t CMD_HEAD_UP_ANGLE   = 0x0B;
+constexpr uint8_t CMD_DASHBOARD_POS   = 0x26;
+constexpr uint8_t CMD_BATTERY_QUERY   = 0x2C;
+constexpr uint8_t CMD_WEAR_DETECTION  = 0x27;
+constexpr uint8_t CMD_SILENT_MODE     = 0x03;
+constexpr uint8_t CMD_INIT_4D         = 0x4D;
+constexpr uint8_t CMD_FIRMWARE_REQ    = 0x6E;
+
+// Settings ranges
+constexpr uint8_t BRIGHTNESS_MAX      = 63;
+constexpr uint8_t HEAD_UP_ANGLE_MAX   = 60;
+constexpr uint8_t DASHBOARD_HEIGHT_MAX = 8;
+constexpr uint8_t DASHBOARD_DEPTH_MIN  = 1;
+constexpr uint8_t DASHBOARD_DEPTH_MAX  = 9;
+
+// Touch/Case events (sub-codes of 0xF5)
+constexpr uint8_t EVT_HEAD_UP         = 0x02;
+constexpr uint8_t EVT_HEAD_DOWN       = 0x03;
+constexpr uint8_t EVT_CASE_REMOVED    = 0x07;
+constexpr uint8_t EVT_CASE_OPEN       = 0x08;
+constexpr uint8_t EVT_CASE_CLOSED     = 0x0B;
+constexpr uint8_t EVT_CASE_CHARGING   = 0x0E;
+constexpr uint8_t EVT_CASE_BATTERY    = 0x0F;
+
 }  // namespace eveng1

@@ -147,6 +147,42 @@ bool G1Protocol::heartbeat() {
     return sendPacket(hb, sizeof(hb));
 }
 
+bool G1Protocol::sendBrightness(uint8_t level, bool autoLight) {
+    if (level > BRIGHTNESS_MAX) level = BRIGHTNESS_MAX;
+    uint8_t packet[] = {CMD_BRIGHTNESS, level, static_cast<uint8_t>(autoLight ? 1 : 0)};
+    return sendPacket(packet, sizeof(packet));
+}
+
+bool G1Protocol::sendHeadUpAngle(uint8_t angle) {
+    if (angle > HEAD_UP_ANGLE_MAX) angle = HEAD_UP_ANGLE_MAX;
+    uint8_t packet[] = {CMD_HEAD_UP_ANGLE, angle, 0x01};
+    return sendPacket(packet, sizeof(packet));
+}
+
+bool G1Protocol::sendDashboardPosition(uint8_t height, uint8_t depth) {
+    if (height > DASHBOARD_HEIGHT_MAX) height = DASHBOARD_HEIGHT_MAX;
+    if (depth < DASHBOARD_DEPTH_MIN) depth = DASHBOARD_DEPTH_MIN;
+    if (depth > DASHBOARD_DEPTH_MAX) depth = DASHBOARD_DEPTH_MAX;
+    static uint8_t counter = 0;
+    uint8_t packet[] = {CMD_DASHBOARD_POS, 0x08, 0x00, counter++, 0x02, 0x01, height, depth};
+    return sendPacket(packet, sizeof(packet));
+}
+
+bool G1Protocol::queryBattery() {
+    uint8_t packet[] = {CMD_BATTERY_QUERY, 0x01};
+    return sendPacket(packet, sizeof(packet));
+}
+
+bool G1Protocol::setWearDetection(bool enabled) {
+    uint8_t packet[] = {CMD_WEAR_DETECTION, static_cast<uint8_t>(enabled ? 0x01 : 0x00)};
+    return sendPacket(packet, sizeof(packet));
+}
+
+bool G1Protocol::setSilentMode(bool enabled) {
+    uint8_t packet[] = {CMD_SILENT_MODE, static_cast<uint8_t>(enabled ? 0x01 : 0x0A)};
+    return sendPacket(packet, sizeof(packet));
+}
+
 void G1Protocol::setResponseCallback(ResponseCallback cb) {
     m_responseCb = cb;
 }
@@ -160,7 +196,7 @@ bool G1Protocol::waitForResponse(uint8_t expectedCmd, uint32_t timeoutMs) {
     auto start = std::chrono::steady_clock::now();
     while (std::chrono::duration_cast<std::chrono::milliseconds>(
                std::chrono::steady_clock::now() - start).count() < static_cast<int64_t>(timeoutMs)) {
-        // Process D-Bus events
+        // Process BLE events via transport's blocking wait
         if (m_transport.isConnected()) {
             m_transport.waitForNotify(m_lastResponseLen, 100);
         }

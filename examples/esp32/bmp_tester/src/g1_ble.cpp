@@ -234,13 +234,23 @@ void G1Device::heartbeat() {
 
 bool G1Device::sendBmp(G1Side& side, const uint8_t* data, size_t dataLen,
                        const uint8_t address[4]) {
-    // Step 1: Send BMP packets
+    // Step 1: Send CRC FIRST (before BMP data, matches reference app)
+    // The firmware computes CRC over data starting from offset 0 (base address)
+    uint8_t crc[4];
+    crc32_xz_bmp(BMP_ADDR_BYTES, data, dataLen, crc);
+    Serial.printf("  [%s] CRC: %02X%02X%02X%02X\n",
+                  side.name(), crc[0], crc[1], crc[2], crc[3]);
+
+    uint8_t crcPkt[5] = {CMD_CRC, crc[0], crc[1], crc[2], crc[3]};
+    side.write(crcPkt, sizeof(crcPkt));
+
+    // Step 2: Send BMP data packets
     if (!_sendBmpData(side, data, dataLen, address)) {
         Serial.printf("  [%s] BMP data send failed\n", side.name());
         return false;
     }
 
-    // Step 2: Send end packet
+    // Step 3: Send end packet
     Serial.printf("  [%s] BMP end...\n", side.name());
     uint8_t endPkt[] = {CMD_BMP_END, 0x0D, 0x0E};
     side.write(endPkt, sizeof(endPkt));
@@ -251,6 +261,7 @@ bool G1Device::sendBmp(G1Side& side, const uint8_t* data, size_t dataLen,
         return false;
     }
 
+    // BMP end response contains CRC check result
     bool endOk = false;
     for (auto b : response.data) {
         if (b == RSP_SUCCESS) { endOk = true; break; }
@@ -261,28 +272,7 @@ bool G1Device::sendBmp(G1Side& side, const uint8_t* data, size_t dataLen,
 
     if (!endOk) return false;
 
-    // Step 3: Send CRC check (always use BASE address for CRC!)
-    uint8_t crc[4];
-    crc32_xz_bmp(BMP_ADDR_BYTES, data, dataLen, crc);
-    Serial.printf("  [%s] CRC: %02X%02X%02X%02X\n",
-                  side.name(), crc[0], crc[1], crc[2], crc[3]);
-
-    uint8_t crcPkt[5] = {CMD_CRC, crc[0], crc[1], crc[2], crc[3]};
-    side.write(crcPkt, sizeof(crcPkt));
-
-    if (!side.waitForNotify(CMD_CRC, response, RESPONSE_TIMEOUT_MS)) {
-        Serial.printf("  [%s] CRC check: TIMEOUT\n", side.name());
-        return false;
-    }
-
-    // Check for success (0xC9 somewhere in response)
-    bool crcOk = false;
-    for (auto b : response.data) {
-        if (b == RSP_SUCCESS) { crcOk = true; break; }
-    }
-
-    Serial.printf("  [%s] CRC check: %s\n", side.name(), crcOk ? "OK" : "FAIL");
-    return crcOk;
+    return true;
 }
 
 bool G1Device::_sendBmpData(G1Side& side, const uint8_t* data, size_t dataLen,
@@ -317,8 +307,8 @@ bool G1Device::_sendBmpData(G1Side& side, const uint8_t* data, size_t dataLen,
             return false;
         }
 
-        // Small delay between packets
-        delay(8);
+        // 15ms delay to prevent left arm write failures
+        delay(15);
 
         if ((i + 1) % 10 == 0 || i == totalPackets - 1) {
             Serial.printf("  [%s] Packet %d/%d\n",

@@ -30,6 +30,16 @@ public:
     // Heartbeat
     bool heartbeat();
 
+    // Display settings
+    bool sendBrightness(uint8_t level, bool autoLight = false);
+    bool sendHeadUpAngle(uint8_t angle);
+    bool sendDashboardPosition(uint8_t height, uint8_t depth);
+
+    // System
+    bool queryBattery();
+    bool setWearDetection(bool enabled);
+    bool setSilentMode(bool enabled);
+
     // Response handling
     using ResponseCallback = std::function<void(uint8_t cmd, const uint8_t* data, uint16_t len)>;
     void setResponseCallback(ResponseCallback cb);

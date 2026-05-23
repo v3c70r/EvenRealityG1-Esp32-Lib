@@ -116,7 +116,7 @@ bool runCoexistenceTests() {
 
     // Send small BMP overlay (32x32 white square at position 100,50)
     Serial.println("  Sending BMP overlay...");
-    uint8_t overlayFb[FULL_FB_SIZE] = {};
+    uint8_t* overlayFb = new uint8_t[FULL_FB_SIZE]();
     for (int y = 50; y < 82; ++y) {
         for (int x = 100; x < 132; ++x) {
             size_t byteIdx = y * DISPLAY_ROW_BYTES + x / 8;
@@ -136,6 +136,7 @@ bool runCoexistenceTests() {
     bool rOk = g_device.sendBmp(g_device.right(), data, dataSize, addr);
     bool t13Ok = lOk && rOk;
     delete[] data;
+    delete[] overlayFb;
 
     Serial.printf("  T13 Result: %s\n", t13Ok ? "OK" : "FAIL");
     delay(2000);

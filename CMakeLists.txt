@@ -6,13 +6,11 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 
 option(EVENG1_BUILD_TESTS "Build unit tests" ON)
-option(EVENG1_BUILD_EXAMPLES "Build examples" ON)
 
 # ─── Library Sources ───
 
 set(EVENG1_GRAPHICS_SOURCES
     src/graphics/framebuffer.cpp
-    src/graphics/command_buffer.cpp
     src/graphics/rasterizer.cpp
     src/graphics/render_style.cpp
     src/graphics/font_bitmap.cpp
@@ -20,20 +18,15 @@ set(EVENG1_GRAPHICS_SOURCES
 )
 
 set(EVENG1_PROTOCOL_SOURCES
-    src/protocol/display_sender.cpp
-    src/protocol/text_sender.cpp
-    src/protocol/touch_parser.cpp
     src/protocol/g1_protocol.cpp
+    src/protocol/touch_parser.cpp
 )
 
 set(EVENG1_TRANSPORT_SOURCES
-    src/transport/linux/ble_bluez.cpp
     src/transport/null_transport.cpp
 )
 
 set(EVENG1_DEVICE_SOURCES
-    src/devices/g1_device.cpp
-    src/devices/simulator_device.cpp
     src/devices/g1_display.cpp
 )
 
@@ -49,22 +42,6 @@ target_include_directories(eveng1 PUBLIC
 )
 
 target_compile_features(eveng1 PUBLIC cxx_std_17)
-
-# Platform-specific
-if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
-    find_package(PkgConfig QUIET)
-    if(PkgConfig_FOUND)
-        pkg_check_modules(SDBUS QUIET IMPORTED_TARGET sdbus-c++)
-        pkg_check_modules(DBUS REQUIRED IMPORTED_TARGET dbus-1)
-    endif()
-    if(SDBUS_FOUND)
-        target_link_libraries(eveng1 PUBLIC PkgConfig::SDBUS)
-    endif()
-    if(DBUS_FOUND)
-        target_link_libraries(eveng1 PUBLIC PkgConfig::DBUS)
-    endif()
-    target_compile_definitions(eveng1 PUBLIC EVENG1_PLATFORM_LINUX)
-endif()
 
 # ─── Tests ───
 
@@ -98,37 +75,4 @@ if(EVENG1_BUILD_TESTS)
     add_eveng1_test(test_font)
     add_eveng1_test(test_crc32)
     add_eveng1_test(test_protocol)
-endif()
-
-# ─── Examples ───
-
-if(EVENG1_BUILD_EXAMPLES)
-    find_package(SDL2 QUIET)
-
-    if(SDL2_FOUND)
-        add_executable(g1_simulator
-            examples/desktop/simulator/main.cpp
-            src/devices/simulator_device.cpp
-            ${EVENG1_GRAPHICS_SOURCES}
-        )
-        target_include_directories(g1_simulator PRIVATE
-            ${CMAKE_CURRENT_SOURCE_DIR}/include
-        )
-        target_link_libraries(g1_simulator PRIVATE SDL2::SDL2)
-        target_compile_features(g1_simulator PRIVATE cxx_std_17)
-    else()
-        message(STATUS "SDL2 not found - simulator disabled")
-    endif()
-
-    # Test glasses executable (Linux only)
-    if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
-        add_executable(test_glasses
-            examples/desktop/test_glasses/main.cpp
-        )
-        target_include_directories(test_glasses PRIVATE
-            ${CMAKE_CURRENT_SOURCE_DIR}/include
-        )
-        target_link_libraries(test_glasses PRIVATE eveng1 pthread)
-        target_compile_features(test_glasses PRIVATE cxx_std_17)
-    endif()
 endif()

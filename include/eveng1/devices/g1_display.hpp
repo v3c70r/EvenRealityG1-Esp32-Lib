@@ -37,6 +37,16 @@ public:
     // Heartbeat (call periodically to keep connection alive)
     bool heartbeat();
 
+    // Display settings
+    bool setBrightness(uint8_t level, bool autoLight = false);
+    bool setHeadUpAngle(uint8_t angle);
+    bool setDashboardPosition(uint8_t height, uint8_t depth);
+
+    // System
+    bool queryBattery();
+    bool setWearDetection(bool enabled);
+    bool setSilentMode(bool enabled);
+
     // Input events
     void setInputCallback(InputCallback cb);
 

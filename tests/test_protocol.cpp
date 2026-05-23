@@ -83,13 +83,17 @@ TEST_CASE("G1Protocol sendText builds correct packet", "[protocol]") {
 
     REQUIRE(transport.m_writeCount >= 1);
     REQUIRE(transport.m_lastWrite[0] == CMD_TEXT);
-    // Payload: page(1) + maxPage(1) + "Hi"(2) = 4 bytes
-    REQUIRE(transport.m_lastWrite[1] == 0x04);
-    REQUIRE(transport.m_lastWrite[2] == 0x00);
-    REQUIRE(transport.m_lastWrite[3] == 0x01);  // page
-    REQUIRE(transport.m_lastWrite[4] == 0x01);  // maxPage
-    REQUIRE(transport.m_lastWrite[5] == 'H');
-    REQUIRE(transport.m_lastWrite[6] == 'i');
+    // 9-byte header + "Hi"(2) = 11 bytes
+    REQUIRE(transport.m_lastWrite[1] == 0x00);  // seq
+    REQUIRE(transport.m_lastWrite[2] == 0x01);  // totalPackets
+    REQUIRE(transport.m_lastWrite[3] == 0x00);  // seq again
+    REQUIRE(transport.m_lastWrite[4] == 0x71);  // screenStatus
+    REQUIRE(transport.m_lastWrite[5] == 0x00);  // char_pos_hi
+    REQUIRE(transport.m_lastWrite[6] == 0x00);  // char_pos_lo
+    REQUIRE(transport.m_lastWrite[7] == 0x01);  // page
+    REQUIRE(transport.m_lastWrite[8] == 0x01);  // maxPage
+    REQUIRE(transport.m_lastWrite[9] == 'H');
+    REQUIRE(transport.m_lastWrite[10] == 'i');
 }
 
 TEST_CASE("G1Protocol exit sends correct packet", "[protocol]") {
