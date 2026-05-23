@@ -1,0 +1,108 @@
+name: Build & Test
+
+on:
+  push:
+    branches: [master, main]
+  pull_request:
+    branches: [master, main]
+
+jobs:
+  # ─── Desktop Library (CMake + unit tests) ───
+  desktop:
+    name: Desktop Library
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install dependencies
+        run: sudo apt-get update && sudo apt-get install -y cmake build-essential
+
+      - name: Configure
+        run: cmake -B build -S . -DEVENG1_BUILD_TESTS=ON
+
+      - name: Build
+        run: cmake --build build -j$(nproc)
+
+      - name: Test
+        run: ctest --test-dir build --output-on-failure
+
+  # ─── ESP32 g1_debug (PlatformIO) ───
+  esp32-g1-debug:
+    name: ESP32 g1_debug
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Cache PlatformIO
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.platformio
+            examples/esp32/g1_debug/.pio
+          key: pio-${{ runner.os }}-${{ hashFiles('examples/esp32/g1_debug/platformio.ini') }}
+
+      - name: Install PlatformIO
+        run: pip install platformio
+
+      - name: Build g1_debug
+        run: pio run
+        working-directory: examples/esp32/g1_debug
+
+  # ─── ESP32 bmp_tester (PlatformIO) ───
+  esp32-bmp-tester:
+    name: ESP32 bmp_tester
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Cache PlatformIO
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.platformio
+            examples/esp32/bmp_tester/.pio
+          key: pio-${{ runner.os }}-${{ hashFiles('examples/esp32/bmp_tester/platformio.ini') }}
+
+      - name: Install PlatformIO
+        run: pip install platformio
+
+      - name: Build bmp_tester
+        run: pio run
+        working-directory: examples/esp32/bmp_tester
+
+  # ─── ESP32 minimal_esp32 (PlatformIO) ───
+  esp32-minimal:
+    name: ESP32 minimal
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Cache PlatformIO
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.platformio
+            examples/minimal_esp32/.pio
+          key: pio-${{ runner.os }}-${{ hashFiles('examples/minimal_esp32/platformio.ini') }}
+
+      - name: Install PlatformIO
+        run: pip install platformio
+
+      - name: Build minimal
+        run: pio run
+        working-directory: examples/minimal_esp32
